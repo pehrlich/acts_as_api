@@ -66,7 +66,8 @@ module ActsAsApi
       #output_params[:root] = output_params[:root].camelize if render_options.has_key?(:camelize) && render_options[:camelize]
       #output_params[:root] = output_params[:root].dasherize if !render_options.has_key?(:dasherize) || render_options[:dasherize]
 
-      api_response = api_model.as_api_response(api_template)
+      # ok for context to be nil
+      api_response = api_model.as_api_response(api_template, render_options[:context])
 
       if api_response.is_a?(Array) && api_format.to_sym == :json && ActsAsApi::Config.include_root_in_json_collections
         api_response = api_response.collect{|f| { api_root_name.singularize => f } }

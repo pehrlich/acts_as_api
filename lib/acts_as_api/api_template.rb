@@ -11,7 +11,7 @@ module ActsAsApi
 
     # The name of the api template as a Symbol.
     attr_accessor :api_template
-    
+
     attr_reader :options
 
     # Returns a new ApiTemplate with the api template name
@@ -42,16 +42,23 @@ module ActsAsApi
     #  * :template - Determine the template that should be used to render the item if it is
     #    +api_accessible+ itself.
     def add(val, options = {})
-      item_key = (options[:as] || val).to_sym
+      field = (options[:as] || val).to_sym
 
-      self[item_key] = val
+      self[field] = val
 
-      @options[item_key] = options
+      @options[field] = options
+      field
+    end
+
+    def add_with_context(val, options={})
+      field = add(val, options)
+      @options[field][:context] = true
     end
 
     # Removes a field from the template
     def remove(field)
       self.delete(field)
+      @options.delete(field)
     end
 
     # Returns the options of a field in the api template
@@ -85,64 +92,118 @@ module ActsAsApi
     # (result is not nil or false)
     def condition_fulfilled?(model, condition)
       case condition
-      when Symbol
-        result = model.send(condition)
-      when Proc
-        result = condition.call(model)
+        when Symbol
+          result = model.send(condition)
+        when Proc
+          result = condition.call(model)
       end
       !result.nil? && !result.is_a?(FalseClass)
     end
 
     # Generates a hash that represents the api response based on this
     # template for the passed model instance.
-    def to_response_hash(model)
+    def to_response_hash(model, context = nil)
+      p "to respons hash called:"
+      p context
       queue = []
       api_output = {}
-      
-      queue << { :output =>  api_output, :item => self }
+
+      queue << {:output => api_output, :item => self}
 
       until queue.empty? do
         leaf = queue.pop
         fieldset = leaf[:item]
-                
+
         fieldset.each do |field, value|
 
           next unless allowed_to_render?(fieldset, field, model)
 
+          field_context = option_for(field, :context) ? context : nil
+          p "api options: #{field}"
+          p option_for(field, :context)
+          p options_for(field)
+          p context
+          p field_context
+
           case value
-          when Symbol
-            if model.respond_to?(value)
-              out = model.send value
-            end
+            when Symbol
+              if model.respond_to?(value)
+                out = send_with_context(model, value, field_context)
+              end
 
-          when Proc
-            out = value.call(model)
+            when Proc
+              out = send_with_context(value, field_context)
 
-          when String
-            # go up the call chain
-            out = model
-            value.split(".").each do |method|
-              out = out.send(method.to_sym)
-            end
+            when String
+              # go up the call chain
+              out = model
 
-          when Hash
-            leaf[:output][field] ||= {}
-            queue << { :output =>  leaf[:output][field], :item => value }
-            next
+              # only send context to last method
+              method_ids = value.split(".").map(&:to_sym)
+              last_method = method_ids.pop
+
+              method_ids.each { |method| out = out.send method }
+
+              out = send_with_context(out, last_method, field_context)
+
+
+            when Hash
+              leaf[:output][field] ||= {}
+              queue << {:output => leaf[:output][field], :item => value}
+              next
           end
 
           if out.respond_to?(:as_api_response)
             sub_template = api_template_for(fieldset, field)
-            out = out.send(:as_api_response, sub_template)
+            out = out.send(:as_api_response, sub_template, context)
           end
 
           leaf[:output][field] = out
         end
-        
+
       end
-      
+
       api_output
     end
-    
+
+    protected
+
+    # todo: it would be more fun to detect if arguments accepted, and pass in context if provided
+    # it would probably be best to only send context that require it, rather than ones that could accept it,
+    # as this behavior could still be unexpected
+    # unless explicitly set otherwise (with_context: false).  This would do-in with the need for our custom add_with_context
+
+    def send_with_context(object_or_method, method_id, context = nil)
+      if object_or_method.is_a? Method
+        method = object_or_method
+        context = method_id
+      else
+        method = object_or_method.method(method_id)
+      end
+
+      if context
+
+        # we can't check arity because that would make method_missing fail
+        # todo: catch wrong number of arguments exceptions, and display the same info
+        #if method.arity == 0 # note: arity returns negative number if variable arguments
+        #  raise "Trying to pass context #{context} to #{object.class}##{method_id}, but it doesn't accept arguments"
+        #end
+
+        method.call context
+
+      else
+
+        #p "sending #{object} #{method_id}"
+
+        #unless method.arity == 0 # note: arity returns negative number if variable arguments
+        #  raise "#{object.class}##{method_id}, demands context, but none specified"
+        #end
+
+        method.call
+
+      end
+    end
+
+
   end
 end
