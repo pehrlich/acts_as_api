@@ -117,17 +117,16 @@ module ActsAsApi
         fieldset.each do |field, value|
 
           next unless allowed_to_render?(fieldset, field, model)
-
-          field_context = option_for(field, :context) ? context : nil
+          context_options = {pass_context: option_for(field, :context), context: context}
 
           case value
             when Symbol
               if model.respond_to?(value)
-                out = send_with_context(model, value, field_context)
+                out = send_with_context(model, value, context_options)
               end
 
             when Proc
-              out = send_with_context(value, field_context)
+              out = send_with_context(value, context_options)
 
             when String
               # go up the call chain
@@ -139,7 +138,7 @@ module ActsAsApi
 
               method_ids.each { |method| out = out.send method }
 
-              out = send_with_context(out, last_method, field_context)
+              out = send_with_context(out, last_method, context_options)
 
 
             when Hash
@@ -168,15 +167,15 @@ module ActsAsApi
     # as this behavior could still be unexpected
     # unless explicitly set otherwise (with_context: false).  This would do-in with the need for our custom add_with_context
 
-    def send_with_context(object_or_method, method_id, context = nil)
+    def send_with_context(object_or_method, method_id, options = {})
       if object_or_method.is_a? Method
         method = object_or_method
-        context = method_id
+        options = method_id
       else
         method = object_or_method.method(method_id)
       end
 
-      if context
+      if options[:pass_context]
 
         # we can't check arity because that would make method_missing fail
         # todo: catch wrong number of arguments exceptions, and display the same info
@@ -184,7 +183,7 @@ module ActsAsApi
         #  raise "Trying to pass context #{context} to #{object.class}##{method_id}, but it doesn't accept arguments"
         #end
 
-        method.call context
+        method.call options[:context]
 
       else
 
@@ -194,7 +193,11 @@ module ActsAsApi
         #  raise "#{object.class}##{method_id}, demands context, but none specified"
         #end
 
-        method.call
+        begin
+          method.call
+        rescue ArgumentError => e
+          throw "#{method} requires context, not given"
+        end
 
       end
     end
