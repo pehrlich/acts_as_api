@@ -103,8 +103,8 @@ module ActsAsApi
     # Generates a hash that represents the api response based on this
     # template for the passed model instance.
     def to_response_hash(model, context = nil)
-      p "to respons hash called:"
-      p context
+      #p "to respons hash called:"
+      #p context
       queue = []
       api_output = {}
 
@@ -119,11 +119,6 @@ module ActsAsApi
           next unless allowed_to_render?(fieldset, field, model)
 
           field_context = option_for(field, :context) ? context : nil
-          p "api options: #{field}"
-          p option_for(field, :context)
-          p options_for(field)
-          p context
-          p field_context
 
           case value
             when Symbol
