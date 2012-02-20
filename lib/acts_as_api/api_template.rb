@@ -47,12 +47,19 @@ module ActsAsApi
       self[field] = val
 
       @options[field] = options
-      field
+    end
+
+    def add?(val, options = {})
+      add val, options.merge({try: true})
     end
 
     def add_with_context(val, options={})
+      add val, options.merge({pass_context: true})
       field = add(val, options)
-      @options[field][:context] = true
+    end
+
+    def in_this_context(val, options={})
+      add val, options.merge({pass_context: self})
     end
 
     # Removes a field from the template
@@ -115,18 +122,26 @@ module ActsAsApi
         fieldset = leaf[:item]
 
         fieldset.each do |field, value|
-
           next unless allowed_to_render?(fieldset, field, model)
-          context_options = {pass_context: option_for(field, :context), context: context}
+
+          options = options_for(fieldset) || {}
+          p "reading options for fieldset #{fieldset}"
+          p options
+
+          if options[:pass_context] == true
+            options[:context] = context
+          elsif options[:pass_context] != false
+            options[:context] = options[:pass_context]
+          end
 
           case value
             when Symbol
               if model.respond_to?(value)
-                out = send_with_context(model, value, context_options)
+                out = send_with_context(model, value, options)
               end
 
             when Proc
-              out = send_with_context(value, context_options)
+              out = send_with_context(value, options)
 
             when String
               # go up the call chain
@@ -136,9 +151,13 @@ module ActsAsApi
               method_ids = value.split(".").map(&:to_sym)
               last_method = method_ids.pop
 
-              method_ids.each { |method| out = out.send method }
+              if options[:try]
+                method_ids.each { |method| out = out.send method if out }
+              else
+                method_ids.each { |method| out = out.send method }
+              end
 
-              out = send_with_context(out, last_method, context_options)
+              out = send_with_context(out, last_method, options)
 
 
             when Hash
@@ -168,12 +187,24 @@ module ActsAsApi
     # unless explicitly set otherwise (with_context: false).  This would do-in with the need for our custom add_with_context
 
     def send_with_context(object_or_method, method_id, options = {})
+      #p "send with context"
+      #p object_or_method
+      #p method_id
+
       if object_or_method.is_a? Method
+        # in the case of procs, there is no object receiver
         method = object_or_method
         options = method_id
       else
         method = object_or_method.method(method_id)
       end
+
+      if options[:try]
+        unless method
+          return nil
+        end
+      end
+
 
       if options[:pass_context]
 
@@ -195,8 +226,14 @@ module ActsAsApi
 
         begin
           method.call
+            # todo: the following doesn't catch shit.
+            # http://ruby-doc.org/docs/ProgrammingRuby/html/tut_exceptions.html
         rescue ArgumentError => e
-          throw "#{method} requires context, not given"
+          message = "api template: `#{e.message}` --- #{method} requires context, please use add_with_context"
+        rescue NameError => e
+          message = "api template: `#{e.message}` when sending #{method}"
+          message << " to #{object_or_method}" if object_or_method
+          throw message
         end
 
       end
