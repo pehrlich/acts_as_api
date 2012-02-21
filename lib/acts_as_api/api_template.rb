@@ -50,16 +50,15 @@ module ActsAsApi
     end
 
     def add?(val, options = {})
-      add val, options.merge({try: true})
+      self.add val, options.merge({try: true})
     end
 
     def add_with_context(val, options={})
-      add val, options.merge({pass_context: true})
-      field = add(val, options)
+      self.add val, options.merge({pass_context: true})
     end
 
     def in_this_context(val, options={})
-      add val, options.merge({pass_context: self})
+      self.add val, options.merge({pass_context: self})
     end
 
     # Removes a field from the template
@@ -124,13 +123,13 @@ module ActsAsApi
         fieldset.each do |field, value|
           next unless allowed_to_render?(fieldset, field, model)
 
-          options = options_for(fieldset) || {}
-          #p "reading options for fieldset #{fieldset}"
+          options = options_for(field) || {}
+          #p "reading options for fieldset #{field}"
           #p options
 
           if options[:pass_context] == true
             options[:context] = context
-          elsif options[:pass_context] != false
+          elsif options[:pass_context]
             options[:context] = options[:pass_context]
           end
 
@@ -213,8 +212,12 @@ module ActsAsApi
         #if method.arity == 0 # note: arity returns negative number if variable arguments
         #  raise "Trying to pass context #{context} to #{object.class}##{method_id}, but it doesn't accept arguments"
         #end
-
+        begin
         method.call options[:context]
+        rescue ArgumentError => e
+          throw "#{method} sent context, not ok. (#{e.message})"
+        end
+
 
       else
 
@@ -229,10 +232,11 @@ module ActsAsApi
             # todo: the following doesn't catch shit.
             # http://ruby-doc.org/docs/ProgrammingRuby/html/tut_exceptions.html
         rescue ArgumentError => e
+          # for some reason, this is catching recursive versions of itself. lame.
           throw "#{method} requires context to be sent. (#{e.message})"
         rescue NameError => e
-          message = "#{method}: `#{e.message}`"
-          message = "#{object_or_method}#" << message if object_or_method
+          message = object_or_method ? "#{object_or_method.class}" : ''
+          message << "##{method.name.to_s}: `#{e.message}`"
           throw message
         end
 
