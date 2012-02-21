@@ -125,8 +125,8 @@ module ActsAsApi
           next unless allowed_to_render?(fieldset, field, model)
 
           options = options_for(fieldset) || {}
-          p "reading options for fieldset #{fieldset}"
-          p options
+          #p "reading options for fieldset #{fieldset}"
+          #p options
 
           if options[:pass_context] == true
             options[:context] = context
@@ -229,10 +229,10 @@ module ActsAsApi
             # todo: the following doesn't catch shit.
             # http://ruby-doc.org/docs/ProgrammingRuby/html/tut_exceptions.html
         rescue ArgumentError => e
-          message = "api template: `#{e.message}` --- #{method} requires context, please use add_with_context"
+          throw "#{method} requires context to be sent. (#{e.message})"
         rescue NameError => e
-          message = "api template: `#{e.message}` when sending #{method}"
-          message << " to #{object_or_method}" if object_or_method
+          message = "#{method}: `#{e.message}`"
+          message = "#{object_or_method}#" << message if object_or_method
           throw message
         end
 
