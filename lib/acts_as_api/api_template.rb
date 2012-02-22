@@ -140,7 +140,9 @@ module ActsAsApi
               end
 
             when Proc
-              out = send_with_context(value, options)
+              # todo: pass [model, context] in to proc
+              out = value.call(model)
+            #out = send_with_context(value, options)
 
             when String
               # go up the call chain
@@ -190,7 +192,7 @@ module ActsAsApi
       #p object_or_method
       #p method_id
 
-      if object_or_method.is_a? Method
+      if [Method, Proc].include? object_or_method.class
         # in the case of procs, there is no object receiver
         method = object_or_method
         options = method_id
@@ -213,7 +215,7 @@ module ActsAsApi
         #  raise "Trying to pass context #{context} to #{object.class}##{method_id}, but it doesn't accept arguments"
         #end
         begin
-        method.call options[:context]
+          method.call options[:context]
         rescue ArgumentError => e
           throw "#{method} sent context, not ok. (#{e.message})"
         end
