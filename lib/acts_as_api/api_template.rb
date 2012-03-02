@@ -109,7 +109,6 @@ module ActsAsApi
     # Generates a hash that represents the api response based on this
     # template for the passed model instance.
     def to_response_hash(model, context = nil)
-      #p "to respons hash called:"
       #p context
       queue = []
       api_output = {}
@@ -197,13 +196,11 @@ module ActsAsApi
         method = object_or_method
         options = method_id
       else
-        method = object_or_method.method(method_id)
-      end
-
-      if options[:try]
-        unless method
+        if options[:try] && !object_or_method
+          p "API#add?: nil receiver for method, ok: #{method_id}"
           return nil
         end
+        method = object_or_method.method(method_id)
       end
 
 
@@ -237,7 +234,7 @@ module ActsAsApi
           # for some reason, this is catching recursive versions of itself. lame.
           p e.backtrace.join('\n')
           throw "#{method} requires context to be sent. (#{e.message})"
-          #throw "#{method} requires context to be sent. (#{e.backtrace.join('\n')})"
+            #throw "#{method} requires context to be sent. (#{e.backtrace.join('\n')})"
         rescue NameError => e
           p e.backtrace.join('\n')
           message = object_or_method ? "#{object_or_method.class}" : ''
