@@ -200,7 +200,14 @@ module ActsAsApi
           p "API#add?: nil receiver for method, ok: #{method_id}"
           return nil
         end
-        method = object_or_method.method(method_id)
+        begin
+          method = object_or_method.method(method_id)
+        rescue NoMethodError => e
+          p "API#add?: receiver yes, method no"
+          if options[:try]
+            return nil
+          end
+        end
       end
 
 
