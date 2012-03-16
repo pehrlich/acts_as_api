@@ -238,10 +238,15 @@ module ActsAsApi
             # todo: the following doesn't catch shit.
             # http://ruby-doc.org/docs/ProgrammingRuby/html/tut_exceptions.html
         rescue ArgumentError => e
-          # for some reason, this is catching recursive versions of itself. lame.
-          p e.backtrace.join('\n')
-          throw "#{method} requires context to be sent. (#{e.message})"
-            #throw "#{method} requires context to be sent. (#{e.backtrace.join('\n')})"
+          # note that an argument error from deep within the function will be caught by this, frustratingly
+          e.backtrace.each do |line|
+            p line
+          end
+
+          throw "#{method} requires context to be sent. (#{e.message}).  See stdout for details."
+
+          # /n joining doesn't work.  todo: try <br>
+          #throw "#{method} requires context to be sent. (#{e.backtrace.join('<br/>')})"
         rescue NameError => e
           p e.backtrace.join('\n')
           message = object_or_method ? "#{object_or_method.class}" : ''
