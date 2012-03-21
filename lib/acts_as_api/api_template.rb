@@ -240,13 +240,14 @@ module ActsAsApi
           method.call
             # todo: the following doesn't catch shit.
             # http://ruby-doc.org/docs/ProgrammingRuby/html/tut_exceptions.html
-        rescue ArgumentError => e
+        rescue Exception => e
           # note that an argument error from deep within the function will be caught by this, frustratingly
           e.backtrace.each do |line|
             p line
           end
 
-          throw "#{method} requires context to be sent. (#{e.message}).  See stdout for details."
+          #throw "#{method} requires context to be sent. (#{e.message}).  See stdout for details."
+          throw "#{method}: #{e.message}.  See stdout for details."
 
             # /n joining doesn't work.  todo: try <br>
             #throw "#{method} requires context to be sent. (#{e.backtrace.join('<br/>')})"
