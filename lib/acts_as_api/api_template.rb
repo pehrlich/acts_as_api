@@ -221,7 +221,10 @@ module ActsAsApi
         begin
           method.call options[:context]
         rescue ArgumentError => e
-          throw "#{method} sent context, not ok. (#{e.message})"
+          e.backtrace.each do |line|
+            p line
+          end
+          throw "#{method} sent context, not ok. (#{e.message}). See stdout for details."
         end
 
 
@@ -245,8 +248,8 @@ module ActsAsApi
 
           throw "#{method} requires context to be sent. (#{e.message}).  See stdout for details."
 
-          # /n joining doesn't work.  todo: try <br>
-          #throw "#{method} requires context to be sent. (#{e.backtrace.join('<br/>')})"
+            # /n joining doesn't work.  todo: try <br>
+            #throw "#{method} requires context to be sent. (#{e.backtrace.join('<br/>')})"
         rescue NameError => e
           p e.backtrace.join('\n')
           message = object_or_method ? "#{object_or_method.class}" : ''
